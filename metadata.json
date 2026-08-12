@@ -1,0 +1,6 @@
+{
+  "name": "Wishora",
+  "description": "Digital celebration and wishes platform for birthdays, anniversaries, congratulations, weddings, and special events.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
