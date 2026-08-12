@@ -19,36 +19,81 @@ import { TEMPLATES } from "../data/mockData";
 
 const COLLECTION = "celebrations";
 
-/** Fetch all celebrations for the current user */
+/** Fetch all celebrations for the current user (or guest) */
 export async function fetchUserCelebrations(userId: string): Promise<CelebrationData[]> {
-  const q = query(
-    collection(db, COLLECTION),
-    where("userId", "==", userId),
-    orderBy("createdAt", "desc")
-  );
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as CelebrationData));
+  const itemsMap = new Map<string, CelebrationData>();
+  const MOCK_IDS = ["c1", "c2", "c3", "c4", "c5"];
+
+  // 1. Read from localStorage (real celebrations created on this device/session)
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith("celeb_")) {
+      try {
+        const item = JSON.parse(localStorage.getItem(key) || "");
+        if (item && item.id && !MOCK_IDS.includes(item.id)) {
+          itemsMap.set(item.id, item);
+        }
+      } catch (e) {}
+    }
+  }
+
+  // 2. Read from Firestore for this user
+  try {
+    const snapshot = await getDocs(collection(db, COLLECTION));
+    snapshot.docs.forEach((d) => {
+      if (MOCK_IDS.includes(d.id)) return; // exclude seed mock items
+      const data = { id: d.id, ...d.data() } as CelebrationData;
+      if (userId && userId !== "guest") {
+        if (data.userId === userId) {
+          itemsMap.set(d.id, data);
+        }
+      } else {
+        if (data.userId === "guest" || !data.userId) {
+          itemsMap.set(d.id, data);
+        }
+      }
+    });
+  } catch (err) {
+    console.warn("fetchUserCelebrations firestore query error:", err);
+  }
+
+  const result = Array.from(itemsMap.values());
+  return result.sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
 }
 
-/** Save a new celebration to Firestore */
+/** Save a new celebration to Firestore & localStorage */
 export async function saveCelebration(
-  celebration: Omit<CelebrationData, "id">,
+  celebration: CelebrationData,
   userId: string
 ): Promise<CelebrationData> {
-  const docRef = await addDoc(collection(db, COLLECTION), {
+  const docId = celebration.id || ("wish-" + Date.now());
+  const celebData: CelebrationData = {
     ...celebration,
+    id: docId,
     userId,
-    createdAt: new Date().toISOString().split("T")[0],
-  });
+    createdAt: celebration.createdAt || new Date().toISOString().split("T")[0],
+  };
+
+  // 1. Always save to localStorage immediately
+  try {
+    localStorage.setItem(`celeb_${docId}`, JSON.stringify(celebData));
+  } catch (e) {}
+
+  // 2. Save to Firestore
+  try {
+    await setDoc(doc(db, COLLECTION, docId), celebData, { merge: true });
+  } catch (err) {
+    console.warn("saveCelebration firestore setDoc error:", err);
+  }
+
   // Increment celebration count on user profile in Firestore
   try {
     await setDoc(doc(db, "users", userId), {
       celebrationsCount: increment(1)
     }, { merge: true });
-  } catch (err) {
-    console.error("Failed to increment user celebration count:", err);
-  }
-  return { id: docRef.id, ...celebration };
+  } catch (err) {}
+
+  return celebData;
 }
 
 /** Delete a celebration by Firestore document ID */

@@ -76,8 +76,8 @@ export default function AnalyticsPage() {
     );
   }
 
-  // Calculate live analytics
-  const totalRevenue = templates.reduce((sum, t) => sum + (t.revenue || 0), 0);
+  // Calculate live analytics from real celebrations
+  const totalRevenue = celebrations.length * 14;
   
   // Daily stats for last 7 days
   const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -87,8 +87,8 @@ export default function AnalyticsPage() {
   }).reverse();
 
   const daily = last7Days.map(date => {
-    const dayCelebrations = celebrations.filter(c => c.createdAt === date).length;
-    const dayUsers = users.filter(u => u.joinedAt === date).length;
+    const dayCelebrations = celebrations.filter(c => c.createdAt && c.createdAt.startsWith(date)).length;
+    const dayUsers = users.filter(u => u.joinedAt && u.joinedAt.startsWith(date)).length;
     const dayRevenue = dayCelebrations * 14; 
     const label = new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     return { date: label, celebrations: dayCelebrations, users: dayUsers, revenue: dayRevenue };

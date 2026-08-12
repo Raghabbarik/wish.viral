@@ -59,16 +59,13 @@ export default function App() {
       .catch((err) => console.error("Failed to load templates:", err));
   }, []);
 
-  // Load celebrations from Firestore when user logs in/out
+  // Load celebrations from Firestore/localStorage when user logs in/out or as guest or switches tabs
   useEffect(() => {
-    if (currentUser) {
-      fetchUserCelebrations(currentUser.uid)
-        .then(setCelebrations)
-        .catch((err) => console.error("Failed to fetch celebrations:", err));
-    } else {
-      setCelebrations([]);
-    }
-  }, [currentUser]);
+    const uid = currentUser ? currentUser.uid : "guest";
+    fetchUserCelebrations(uid)
+      .then(setCelebrations)
+      .catch((err) => console.error("Failed to fetch celebrations:", err));
+  }, [currentUser, activeTab]);
 
   const handleViewDemo = (template: Template) => {
     setSelectedTemplate(template);
@@ -76,11 +73,6 @@ export default function App() {
   };
 
   const handleUseTemplate = (template: Template) => {
-    if (!currentUser) {
-      // Prompt login before creating
-      setIsLoginModalOpen(true);
-      return;
-    }
     setSelectedTemplate(template);
     setIsPreviewModalOpen(false);
     setActiveTab("wizard");
@@ -190,7 +182,6 @@ return (
                     selectedCategory={selectedCategory}
                     onCategoryChange={setSelectedCategory}
                     onCreateSurpriseChallenge={() => {
-                      if (!currentUser) { setIsLoginModalOpen(true); return; }
                       setIsCreatorOpen(true);
                     }}
                   />

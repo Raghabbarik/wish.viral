@@ -237,6 +237,8 @@ export const PersonalizationWizard: React.FC<PersonalizationWizardProps> = ({
         viewsCount: 1,
         slug: slug,
         status: "Active",
+        category: template.categoryName || (template.category.charAt(0).toUpperCase() + template.category.slice(1)),
+        userId: currentUser?.uid || "guest",
         customFields: form.customFields,
       };
 

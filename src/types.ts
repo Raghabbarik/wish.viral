@@ -116,6 +116,8 @@ export interface CelebrationData {
   viewsCount: number;
   slug: string;
   status: 'Active' | 'Scheduled' | 'Delivered';
+  category?: string;
+  userId?: string;
   isPasswordProtected?: boolean;
   password?: string;
   customFields?: CustomField[];

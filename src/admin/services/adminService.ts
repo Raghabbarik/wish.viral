@@ -204,17 +204,83 @@ export async function deleteUser(userId: string) {
   await deleteDoc(doc(db, "users", userId));
 }
 
-// ── Celebrations ──────────────────────────────────────────────────────────────
-
 export function listenToCelebrations(callback: (celebrations: AdminCelebration[]) => void) {
   return onSnapshot(
     collection(db, "celebrations"),
     (snapshot) => {
       const celebrations: AdminCelebration[] = [];
-      snapshot.forEach((d) => celebrations.push({ id: d.id, ...d.data() } as AdminCelebration));
+      snapshot.forEach((d) => {
+        const data = d.data();
+        celebrations.push({
+          id: d.id,
+          templateTitle: data.templateTitle || "Celebration Page",
+          recipientName: data.recipientName || "Friend",
+          senderName: data.senderName || "Well Wisher",
+          senderEmail: data.senderEmail || "user@wishora.app",
+          createdAt: (data.createdAt || new Date().toISOString()).split("T")[0],
+          viewsCount: data.viewsCount || 0,
+          status: data.status || "Active",
+          category: data.category || "Birthday",
+          slug: data.slug || d.id,
+          userId: data.userId || "guest",
+        } as AdminCelebration);
+      });
+
+      // Merge local storage celebrations
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("celeb_")) {
+          try {
+            const item = JSON.parse(localStorage.getItem(key) || "");
+            if (item.id && !celebrations.some((c) => c.id === item.id)) {
+              celebrations.push({
+                id: item.id,
+                templateTitle: item.templateTitle || "Celebration Page",
+                recipientName: item.recipientName || "Friend",
+                senderName: item.senderName || "Well Wisher",
+                senderEmail: "guest@wishora.app",
+                createdAt: (item.createdAt || new Date().toISOString()).split("T")[0],
+                viewsCount: item.viewsCount || 1,
+                status: item.status || "Active",
+                category: item.category || "Birthday",
+                slug: item.slug || item.id,
+                userId: item.userId || "guest",
+              });
+            }
+          } catch (e) {}
+        }
+      }
+
       callback(celebrations);
     },
-    (error) => console.error("listenToCelebrations error:", error)
+    (error) => {
+      console.warn("listenToCelebrations error, reading from localStorage:", error);
+      const local: AdminCelebration[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith("celeb_")) {
+          try {
+            const item = JSON.parse(localStorage.getItem(key) || "");
+            if (item.id) {
+              local.push({
+                id: item.id,
+                templateTitle: item.templateTitle || "Celebration Page",
+                recipientName: item.recipientName || "Friend",
+                senderName: item.senderName || "Well Wisher",
+                senderEmail: "guest@wishora.app",
+                createdAt: (item.createdAt || new Date().toISOString()).split("T")[0],
+                viewsCount: item.viewsCount || 1,
+                status: item.status || "Active",
+                category: item.category || "Birthday",
+                slug: item.slug || item.id,
+                userId: item.userId || "guest",
+              });
+            }
+          } catch (e) {}
+        }
+      }
+      callback(local);
+    }
   );
 }
 

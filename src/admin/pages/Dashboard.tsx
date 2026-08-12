@@ -102,8 +102,8 @@ export default function Dashboard() {
   const totalCelebrations = celebrations.length;
   const totalTemplates = templates.length;
 
-  // Calculate total revenue from templates
-  const totalRevenue = templates.reduce((sum, t) => sum + (t.revenue || 0), 0);
+  // Calculate total revenue from real celebrations ($14 per creation)
+  const totalRevenue = celebrations.length * 14;
 
   // Group celebrations by category for breakdown
   const categoryCounts: Record<string, number> = {};
