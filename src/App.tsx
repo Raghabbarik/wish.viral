@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useParams } from "react-router-dom";
 import AdminRoutes from "./admin/routes";
 import { Template, CategoryId, CelebrationData } from "./types";
 import { TEMPLATES } from "./data/mockData";
@@ -24,6 +24,15 @@ import {
   incrementViewCount,
   fetchTemplates,
 } from "./lib/celebrations";
+import InteractiveChallengePage from "./components/interactive/InteractiveChallengePage";
+import InteractiveSurpriseCreator from "./components/interactive/InteractiveSurpriseCreator";
+
+// Wrapper that reads :id from URL and renders the challenge player
+function UnlockRouteWrapper() {
+  const { id } = useParams<{ id: string }>();
+  if (!id) return <div className="min-h-screen bg-[#0f0f14] flex items-center justify-center text-white">Invalid link</div>;
+  return <InteractiveChallengePage instanceId={id} />;
+}
 
 export default function App() {
   const { currentUser } = useAuth();
@@ -37,6 +46,7 @@ export default function App() {
   const [activeCelebrationView, setActiveCelebrationView] = useState<CelebrationData | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [isCreatorOpen, setIsCreatorOpen] = useState(false);
 
   // Load templates from Firestore on mount (seeds if empty)
   useEffect(() => {
@@ -136,6 +146,8 @@ export default function App() {
 return (
   <Routes>
     <Route path="/admin/*" element={<AdminRoutes />} />
+    <Route path="/unlock/:id" element={<UnlockRouteWrapper />} />
+    <Route path="/w/:slug" element={<CelebrationPage />} />
     <Route path="*" element={
       <ToastProvider>
         <div className="min-h-screen bg-transparent text-[#4e220f] flex flex-col justify-between selection:bg-[#9d662f] selection:text-[#f7f1de] transition-colors">
@@ -177,6 +189,10 @@ return (
                     onUseTemplate={handleUseTemplate}
                     selectedCategory={selectedCategory}
                     onCategoryChange={setSelectedCategory}
+                    onCreateSurpriseChallenge={() => {
+                      if (!currentUser) { setIsLoginModalOpen(true); return; }
+                      setIsCreatorOpen(true);
+                    }}
                   />
                 )}
 
@@ -243,6 +259,9 @@ return (
             template={selectedTemplate}
             onUseTemplate={handleUseTemplate}
           />
+          {isCreatorOpen && (
+            <InteractiveSurpriseCreator onClose={() => setIsCreatorOpen(false)} />
+          )}
         </div>
       </ToastProvider>
     } />

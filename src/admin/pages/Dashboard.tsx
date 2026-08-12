@@ -28,7 +28,7 @@ function StatCard({ title, value, sub, icon: Icon, color, trend }: {
   );
 }
 
-function MiniBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+const MiniBar: React.FC<{ label: string; value: number; max: number; color: string }> = ({ label, value, max, color }) => {
   const pct = max > 0 ? Math.round((value / max) * 100) : 0;
   return (
     <div>

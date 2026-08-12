@@ -53,6 +53,28 @@ export interface FinalSurprise {
   title?: string;
 }
 
+export interface Template {
+  id: string;
+  title: string;
+  category: CategoryId;
+  categoryName?: string;
+  description: string;
+  previewImage: string;
+  themeColor: string;
+  gradient: string;
+  bgPattern: string;
+  musicTrack: string;
+  sampleRecipient: string;
+  sampleSender: string;
+  sampleMessage: string;
+  samplePhotos: string[];
+  isPremium: boolean;
+  features: string[];
+  useCount?: number;
+  rating?: number;
+  status?: "active" | "draft" | "archived";
+}
+
 export interface InteractiveTemplate {
   id: string;
   title: string;
@@ -67,6 +89,7 @@ export interface InteractiveTemplate {
     maxAttempts?: number;
     allowHints: boolean;
   };
+  createdAt?: string;
 }
 
 export interface InteractiveInstance {

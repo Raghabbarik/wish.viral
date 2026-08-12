@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Template, CategoryId } from "../types";
 import { TemplateGrid } from "../components/templates/TemplateGrid";
-import { Sparkles, Plus, X, Trash2 } from "lucide-react";
+import { Sparkles, Plus, X, Trash2, Lock } from "lucide-react";
 import { saveTemplate } from "../admin/services/adminService";
 
 interface ExploreViewProps {
@@ -10,6 +10,7 @@ interface ExploreViewProps {
   onUseTemplate: (template: Template) => void;
   selectedCategory?: CategoryId | "all";
   onCategoryChange?: (category: CategoryId | "all") => void;
+  onCreateSurpriseChallenge?: () => void;
 }
 export const ExploreView: React.FC<ExploreViewProps> = ({
   templates,
@@ -17,6 +18,7 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
   onUseTemplate,
   selectedCategory = "all",
   onCategoryChange,
+  onCreateSurpriseChallenge,
 }) => {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -123,6 +125,42 @@ export const ExploreView: React.FC<ExploreViewProps> = ({
         onCategoryChange={onCategoryChange}
         showFilters={true}
       />
+
+      {/* Unlock the Surprise Feature Card */}
+      {onCreateSurpriseChallenge && (
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1a0a2e] via-[#1e0f3a] to-[#0f0a1e] border border-violet-500/20 p-8 flex flex-col md:flex-row items-center gap-6">
+          {/* Background glow */}
+          <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full bg-violet-600/20 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-pink-600/15 blur-3xl pointer-events-none" />
+
+          <div className="relative flex-shrink-0 w-20 h-20 rounded-2xl bg-gradient-to-br from-violet-600 to-pink-500 flex items-center justify-center shadow-2xl shadow-violet-500/40">
+            <Lock className="w-10 h-10 text-white" />
+          </div>
+
+          <div className="relative flex-1 text-center md:text-left">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-500/20 border border-violet-500/30 text-violet-300 text-xs font-bold mb-3">
+              <Sparkles className="w-3 h-3" /> New Feature
+            </div>
+            <h2 className="text-2xl font-black text-white mb-2">🔐 Unlock the Surprise</h2>
+            <p className="text-white/60 text-sm max-w-md">
+              Create an interactive quiz challenge for your friend, partner, or family. They must answer your questions
+              correctly to unlock a hidden final surprise — message, photo, video, music, or gallery.
+            </p>
+            <div className="flex flex-wrap gap-2 mt-4 justify-center md:justify-start">
+              {["Quiz Challenge", "Surprise Reveal", "Shareable Link", "Confetti Animation"].map(f => (
+                <span key={f} className="px-2.5 py-1 bg-white/5 border border-white/10 rounded-full text-xs text-white/50">{f}</span>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={onCreateSurpriseChallenge}
+            className="relative flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-violet-600 to-pink-600 hover:from-violet-700 hover:to-pink-700 text-white font-bold text-sm rounded-2xl shadow-lg shadow-violet-500/30 transition-all hover:scale-105 whitespace-nowrap"
+          >
+            <Lock className="w-4 h-4" /> Create a Challenge
+          </button>
+        </div>
+      )}
 
       {/* Modal for creating a template */}
       {isModalOpen && (

@@ -328,19 +328,51 @@ export async function saveInteractiveTemplate(template: InteractiveTemplate) {
       order: q.order ?? idx + 1,
     })),
   };
-  await setDoc(doc(db, "interactiveTemplates", id), fullTemplate, { merge: true });
+
+  // Always save locally for instant offline/unauthenticated availability
+  try {
+    localStorage.setItem(`itpl_${id}`, JSON.stringify(fullTemplate));
+  } catch (e) {
+    console.warn("localStorage save interactive template error:", e);
+  }
+
+  // Attempt Firestore sync
+  try {
+    await setDoc(doc(db, "interactiveTemplates", id), fullTemplate, { merge: true });
+  } catch (err) {
+    console.warn("Firestore save failed, template saved in localStorage fallback:", err);
+  }
+
   return fullTemplate;
 }
 
 export async function deleteInteractiveTemplate(templateId: string) {
-  await deleteDoc(doc(db, "interactiveTemplates", templateId));
+  try {
+    localStorage.removeItem(`itpl_${templateId}`);
+  } catch (e) {}
+  try {
+    await deleteDoc(doc(db, "interactiveTemplates", templateId));
+  } catch (e) {}
 }
 
 export async function getInteractiveTemplateById(
   templateId: string
 ): Promise<InteractiveTemplate | null> {
-  const snap = await getDoc(doc(db, "interactiveTemplates", templateId));
-  return snap.exists() ? (snap.data() as InteractiveTemplate) : null;
+  // 1. Try Firestore first
+  try {
+    const snap = await getDoc(doc(db, "interactiveTemplates", templateId));
+    if (snap.exists()) return snap.data() as InteractiveTemplate;
+  } catch (err) {
+    console.warn("Firestore interactive template fetch error, falling back to localStorage:", err);
+  }
+
+  // 2. Fallback to localStorage
+  try {
+    const local = localStorage.getItem(`itpl_${templateId}`);
+    if (local) return JSON.parse(local) as InteractiveTemplate;
+  } catch (e) {}
+
+  return null;
 }
 
 export async function createInteractiveInstance(templateId: string, creatorId: string) {
@@ -352,15 +384,27 @@ export async function createInteractiveInstance(templateId: string, creatorId: s
     createdAt: new Date().toISOString().split("T")[0],
     status: "published",
   };
-  await setDoc(doc(db, "interactiveInstances", slug), instance);
+  try {
+    localStorage.setItem(`iinst_${slug}`, JSON.stringify(instance));
+  } catch (e) {}
+  try {
+    await setDoc(doc(db, "interactiveInstances", slug), instance);
+  } catch (e) {}
   return instance;
 }
 
 export async function getInteractiveInstanceBySlug(
   slug: string
 ): Promise<InteractiveInstance | null> {
-  const snap = await getDoc(doc(db, "interactiveInstances", slug));
-  return snap.exists() ? (snap.data() as InteractiveInstance) : null;
+  try {
+    const snap = await getDoc(doc(db, "interactiveInstances", slug));
+    if (snap.exists()) return snap.data() as InteractiveInstance;
+  } catch (e) {}
+  try {
+    const local = localStorage.getItem(`iinst_${slug}`);
+    if (local) return JSON.parse(local) as InteractiveInstance;
+  } catch (e) {}
+  return null;
 }
 
 export async function saveInteractiveResponse(
