@@ -222,7 +222,7 @@ export const PersonalizationWizard: React.FC<PersonalizationWizardProps> = ({
         .replace(/[^a-z0-9]/g, "-")}-${template.category}-${Math.floor(1000 + Math.random() * 9000)}`;
 
       const newCelebration: CelebrationData = {
-        id: "wish-" + Date.now(),
+        id: slug,          // ← use slug as doc ID so /w/:slug lookups are direct getDoc
         templateId: template.id,
         templateTitle: template.title,
         recipientName: form.recipientName,

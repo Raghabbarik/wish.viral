@@ -134,17 +134,20 @@ export async function getCelebration(id: string): Promise<CelebrationData | null
   return { id: snap.id, ...snap.data() } as CelebrationData;
 }
 
-/** Get a single celebration by its public slug field (used for /w/:slug routes) */
+/** Get a single celebration by its public slug (slug === Firestore doc ID) */
 export async function getCelebrationBySlug(slug: string): Promise<CelebrationData | null> {
-  // First try: slug is often the same as the doc ID
+  // Primary: direct doc lookup — O(1), no index needed, works with any read rules
   try {
-    const directSnap = await getDoc(doc(db, COLLECTION, slug));
-    if (directSnap.exists()) {
-      return { id: directSnap.id, ...directSnap.data() } as CelebrationData;
+    const snap = await getDoc(doc(db, COLLECTION, slug));
+    if (snap.exists()) {
+      return { id: snap.id, ...snap.data() } as CelebrationData;
     }
-  } catch (_) {}
+  } catch (err) {
+    console.warn("getCelebrationBySlug direct lookup error:", err);
+  }
 
-  // Second try: query by slug field
+  // Fallback: legacy celebrations (created before slug=id fix) stored by old "wish-{timestamp}" id
+  // Try a where query for those
   try {
     const q = query(collection(db, COLLECTION), where("slug", "==", slug));
     const snap = await getDocs(q);
@@ -152,18 +155,18 @@ export async function getCelebrationBySlug(slug: string): Promise<CelebrationDat
       const d = snap.docs[0];
       return { id: d.id, ...d.data() } as CelebrationData;
     }
-  } catch (err) {
-    console.warn("getCelebrationBySlug query error:", err);
+  } catch (_) {
+    // where query may fail without index — that's fine, fall through to localStorage
   }
 
-  // Final fallback: check localStorage
+  // Final fallback: localStorage (offline / same-device only)
   if (typeof window !== "undefined") {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && key.startsWith("celeb_")) {
         try {
           const item = JSON.parse(localStorage.getItem(key) || "");
-          if (item && item.slug === slug) return item as CelebrationData;
+          if (item && (item.slug === slug || item.id === slug)) return item as CelebrationData;
         } catch (_) {}
       }
     }
