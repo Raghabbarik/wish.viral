@@ -17,44 +17,49 @@ import { db } from "./firebase";
 import { CelebrationData, Template } from "../types";
 import { TEMPLATES } from "../data/mockData";
 
+const MOCK_IDS = ["c1", "c2", "c3", "c4", "c5"];
+
 const COLLECTION = "celebrations";
 
 /** Fetch all celebrations for the current user (or guest) */
 export async function fetchUserCelebrations(userId: string): Promise<CelebrationData[]> {
   const itemsMap = new Map<string, CelebrationData>();
-  const MOCK_IDS = ["c1", "c2", "c3", "c4", "c5"];
 
-  // 1. Read from localStorage (real celebrations created on this device/session)
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (key && key.startsWith("celeb_")) {
-      try {
-        const item = JSON.parse(localStorage.getItem(key) || "");
-        if (item && item.id && !MOCK_IDS.includes(item.id)) {
-          itemsMap.set(item.id, item);
-        }
-      } catch (e) {}
-    }
-  }
-
-  // 2. Read from Firestore for this user
+  // Primary source: Firestore filtered by userId (works on all devices/deployments)
   try {
-    const snapshot = await getDocs(collection(db, COLLECTION));
+    const firestoreUserId = userId === "guest" ? "guest" : userId;
+    const q = query(
+      collection(db, COLLECTION),
+      where("userId", "==", firestoreUserId)
+    );
+    const snapshot = await getDocs(q);
     snapshot.docs.forEach((d) => {
-      if (MOCK_IDS.includes(d.id)) return; // exclude seed mock items
-      const data = { id: d.id, ...d.data() } as CelebrationData;
-      if (userId && userId !== "guest") {
-        if (data.userId === userId) {
-          itemsMap.set(d.id, data);
-        }
-      } else {
-        if (data.userId === "guest" || !data.userId) {
-          itemsMap.set(d.id, data);
-        }
-      }
+      if (MOCK_IDS.includes(d.id)) return;
+      itemsMap.set(d.id, { id: d.id, ...d.data() } as CelebrationData);
     });
   } catch (err) {
     console.warn("fetchUserCelebrations firestore query error:", err);
+  }
+
+  // Fallback: also merge any locally-stored celebrations (e.g. created while offline)
+  if (typeof window !== "undefined") {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("celeb_")) {
+        try {
+          const item = JSON.parse(localStorage.getItem(key) || "");
+          if (
+            item &&
+            item.id &&
+            !MOCK_IDS.includes(item.id) &&
+            item.userId === (userId === "guest" ? "guest" : userId) &&
+            !itemsMap.has(item.id)
+          ) {
+            itemsMap.set(item.id, item);
+          }
+        } catch (e) {}
+      }
+    }
   }
 
   const result = Array.from(itemsMap.values());
@@ -122,11 +127,49 @@ export async function incrementViewCount(id: string): Promise<void> {
   });
 }
 
-/** Get a single celebration by ID */
+/** Get a single celebration by Firestore document ID */
 export async function getCelebration(id: string): Promise<CelebrationData | null> {
   const snap = await getDoc(doc(db, COLLECTION, id));
   if (!snap.exists()) return null;
   return { id: snap.id, ...snap.data() } as CelebrationData;
+}
+
+/** Get a single celebration by its public slug field (used for /w/:slug routes) */
+export async function getCelebrationBySlug(slug: string): Promise<CelebrationData | null> {
+  // First try: slug is often the same as the doc ID
+  try {
+    const directSnap = await getDoc(doc(db, COLLECTION, slug));
+    if (directSnap.exists()) {
+      return { id: directSnap.id, ...directSnap.data() } as CelebrationData;
+    }
+  } catch (_) {}
+
+  // Second try: query by slug field
+  try {
+    const q = query(collection(db, COLLECTION), where("slug", "==", slug));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const d = snap.docs[0];
+      return { id: d.id, ...d.data() } as CelebrationData;
+    }
+  } catch (err) {
+    console.warn("getCelebrationBySlug query error:", err);
+  }
+
+  // Final fallback: check localStorage
+  if (typeof window !== "undefined") {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("celeb_")) {
+        try {
+          const item = JSON.parse(localStorage.getItem(key) || "");
+          if (item && item.slug === slug) return item as CelebrationData;
+        } catch (_) {}
+      }
+    }
+  }
+
+  return null;
 }
 
 /** Fetch all templates from Firestore (or seed if empty) */

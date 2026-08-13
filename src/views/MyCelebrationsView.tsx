@@ -20,6 +20,8 @@ interface MyCelebrationsViewProps {
   onEditCelebration: (celebration: CelebrationData) => void;
   onDeleteCelebration: (id: string) => void;
   onCreateNew: () => void;
+  isLoggedIn?: boolean;
+  onOpenLogin?: () => void;
 }
 export const MyCelebrationsView: React.FC<MyCelebrationsViewProps> = ({
   celebrations,

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { CelebrationData } from "../../types";
 import { TEMPLATES } from "../../data/mockData";
 import { musicSynth } from "../../utils/audio";
 import confetti from "canvas-confetti";
+import { getCelebrationBySlug, incrementViewCount } from "../../lib/celebrations";
 import {
   Gift,
   Sparkles,
@@ -18,33 +20,105 @@ import {
   CheckCircle2,
   Lock,
   Eye,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "../common/Toast";
 import { QRCodeModal } from "../common/QRCodeModal";
+import { ToastProvider } from "../common/Toast";
 import { motion, AnimatePresence } from "motion/react";
+
 interface CelebrationPageProps {
-  celebration: CelebrationData;
-  onBackToHome: () => void;
-  onCreateNew: () => void;
+  celebration?: CelebrationData;
+  onBackToHome?: () => void;
+  onCreateNew?: () => void;
 }
+
 export const CelebrationPage: React.FC<CelebrationPageProps> = ({
-  celebration,
+  celebration: propCelebration,
   onBackToHome,
   onCreateNew,
 }) => {
+  const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
+
+  // ── ALL hooks must be declared before any conditional returns ──────────────
+  const [routeCelebration, setRouteCelebration] = useState<CelebrationData | null>(null);
+  const [loading, setLoading] = useState(!propCelebration);
+  const [notFound, setNotFound] = useState(false);
   const [isOpenSurprise, setIsOpenSurprise] = useState(false);
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
   const [blownCandle, setBlownCandle] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
   const { showToast } = useToast();
-  const template =
-    TEMPLATES.find((t) => t.id === celebration.templateId) || TEMPLATES[0];
+
+  // Fetch celebration from Firestore when used as a /w/:slug route
   useEffect(() => {
-    return () => {
-      musicSynth.stop();
-    };
+    if (propCelebration) return;
+    if (!slug) { setNotFound(true); setLoading(false); return; }
+
+    setLoading(true);
+    getCelebrationBySlug(slug)
+      .then((data) => {
+        if (!data) {
+          setNotFound(true);
+        } else {
+          setRouteCelebration(data);
+          incrementViewCount(data.id).catch(() => {});
+        }
+      })
+      .catch(() => setNotFound(true))
+      .finally(() => setLoading(false));
+  }, [slug, propCelebration]);
+
+  // Cleanup music on unmount
+  useEffect(() => {
+    return () => { musicSynth.stop(); };
   }, []);
+
+  const celebration = propCelebration ?? routeCelebration;
+
+  // ── Loading state ──────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <ToastProvider>
+        <div className="min-h-screen bg-gradient-to-br from-[#2d1a0e] to-[#4e220f] flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <Loader2 className="w-12 h-12 text-[#b0ba99] animate-spin mx-auto" />
+            <p className="text-white/70 font-semibold text-sm">Loading your celebration...</p>
+          </div>
+        </div>
+      </ToastProvider>
+    );
+  }
+
+  // ── Not found state ────────────────────────────────────────────────────────
+  if (notFound || !celebration) {
+    return (
+      <ToastProvider>
+        <div className="min-h-screen bg-gradient-to-br from-[#2d1a0e] to-[#4e220f] flex items-center justify-center px-4">
+          <div className="text-center space-y-5 max-w-md">
+            <div className="text-6xl">🎁</div>
+            <h1 className="text-2xl font-black text-white">Celebration Not Found</h1>
+            <p className="text-white/60 text-sm">
+              This celebration link may have been deleted or the URL is incorrect.
+            </p>
+            <button
+              onClick={() => navigate("/")}
+              className="px-6 py-3 bg-white/60 text-[#9d6638] font-bold rounded-2xl hover:bg-[#b0ba99] transition-all"
+            >
+              Go to Wishora Home
+            </button>
+          </div>
+        </div>
+      </ToastProvider>
+    );
+  }
+
+  // ── Helpers & derived values (safe — celebration is guaranteed non-null here)
+  const handleGoHome = onBackToHome ?? (() => navigate("/"));
+  const handleCreateNew = onCreateNew ?? (() => navigate("/"));
+  const template = TEMPLATES.find((t) => t.id === celebration.templateId) || TEMPLATES[0];
   const fullUrl = `${window.location.origin}/w/${celebration.slug}`;
   const handleOpenSurprise = () => {
     setIsOpenSurprise(true);
@@ -87,7 +161,7 @@ export const CelebrationPage: React.FC<CelebrationPageProps> = ({
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
           {" "}
           <button
-            onClick={onBackToHome}
+            onClick={handleGoHome}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/60/10 hover:bg-white/60/20 text-xs font-bold transition-colors"
           >
             {" "}
@@ -109,7 +183,7 @@ export const CelebrationPage: React.FC<CelebrationPageProps> = ({
             </button>
           )}{" "}
           <button
-            onClick={onCreateNew}
+            onClick={handleCreateNew}
             className="px-4 py-2 rounded-xl bg-white/60 text-[#9d6638] font-bold text-xs shadow-md hover:bg-[#b0ba99] transition-all flex items-center gap-1 min-h-[38px]"
           >
             {" "}
